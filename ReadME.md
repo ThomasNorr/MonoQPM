@@ -1,4 +1,16 @@
-# CHiQPM: Calibrated Hierarchical Interpretable Image Classification
+# MonoQPM: Splitting Features into Concepts
+
+This repository contains the code for **MonoQPM**, a post-hoc transformation that disentangles the
+polysemantic features of a frozen QPM into monosemantic concepts, and evaluates the result through
+the efficiency of Conformal Prediction. Nothing is retrained: a trained QPM goes in, a MonoQPM
+with one concept per discovered meaning comes out.
+
+See [MonoQPM: disentangling a trained QPM](#monoqpm-disentangling-a-trained-qpm) for how to run it.
+
+It is built on the CHiQPM codebase, which is included here in full so that a model can be trained
+and disentangled from one checkout. Everything below this line is that original code base.
+
+---
 
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/ThomasNorr/CHIQPM_Demo)
 
@@ -102,6 +114,74 @@ python main.py --dataset StanfordCars
 All experiments on ImageNet in the paper skipped the dense training from 
 scratch. The pretrained models are used directly.
 This can be replicated with the argument --do_dense False.
+
+## MonoQPM: disentangling a trained QPM
+
+MonoQPM takes a frozen QPM -- a backbone plus a binary class/feature assignment `W` -- and splits
+every feature into the distinct concepts it actually encodes, then rebuilds the class logits from
+those concepts. It adds no parameters and does not retrain anything.
+
+For each feature `d` (paper Sections 5.1-5.3):
+
+1. every training image is passed through the frozen model once, recording per channel the
+   fraction of positive positions at each ReLU call (the spline code, eq. 15-16);
+2. the images kept are the correctly classified ones of the classes assigned to `d`;
+3. the network depth to use is the last participation-ratio maximum before the global one (eq. 17);
+4. PCA followed by a one-component LDA reduces that to one scalar per image (Section 5.1);
+5. a 1-D Gaussian mixture, initialised at the Fisher-Jenks natural breaks, is fitted for each
+   candidate count and the minimum-BIC one wins (eq. 13);
+6. a class joins every concept whose mean responsibility over its images clears `tau = 1/(2 n_c)`
+   (eq. 14).
+
+At inference a test image's feature value goes to the concept whose classes hold its largest
+logit; every other concept slot of that feature holds `mu_d`, the minimum of that feature over the
+evaluated set (eq. 8). A class logit is the sum over its features of the maximum over the concepts
+it owns (eq. 9). Because the predicted class is the global logit maximum, its own concept always
+wins the routing of every feature it owns, so **MonoQPM provably cannot change the top-1
+prediction** -- the reported `top-1 kept` column is the empirical check.
+
+### Running it
+
+`disentangle_qpm.py` computes and caches the concepts of a checkpoint written by `main.py`:
+
+```shell
+python disentangle_qpm.py --dataset CUB2011 --arch resnet50 --seed <SEED>
+```
+
+`evaluate_conformal.py` scores the conformal efficiency before and after, as Observed Fuzziness
+(paper eq. 4) for THR and APS. It reuses the cache above, or computes it if absent:
+
+```shell
+python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed <SEED> --cal_frac 0.3333
+```
+
+Observed Fuzziness is threshold-free: it averages the summed p-values of the WRONG labels, so no
+prediction set is formed and no target coverage has to be chosen. Lower is better. It sums
+`n_classes - 1` p-values, so its scale depends on the dataset and values are comparable only
+within one. Use `--cal_frac` to calibrate on a fraction of each class rather than the fixed count
+of `--cal_size`: a fixed 10 per class is 34.5% of CUB's test set but only 3.5% of a 7-class one,
+which changes the p-value resolution by an order of magnitude between datasets.
+
+`--rules all` additionally reports the assignment ablations, which vary the two independent
+choices of the method: who owns a concept (eq. 14's threshold, or every concept a class's own
+training images fall into) and how a test image is routed (eq. 8's class logits, or the image's
+own mixture mode). Only rules that keep eq. 8 preserve the top-1 guarantee.
+
+### Implementation notes
+
+* **`monoqpm/meaning_split.py`** finds the concepts, **`monoqpm/conformal.py`** implements eq. 8,
+  eq. 9 and Observed Fuzziness, and **`monoqpm/extract.py`** connects both to this repository's
+  models. `tests/test_monoqpm.py` checks the Fisher-Jenks breaks against brute-force optimality,
+  eq. 8/9 against a hand-written reference, and the ReLU hook layout.
+* The Fisher-Jenks breaks are reimplemented so that `jenkspy` is not required; the test suite
+  verifies they are identical to it when it is installed.
+* PCA uses the exact SVD solver. scikit-learn's `auto` picks the randomized solver at these shapes
+  and does not seed it, which makes the concept assignment vary between runs.
+* `mu_d` in eq. 8 is the feature minimum. This matters more than any other choice: around 82% of a
+  CUB QPM's feature values are negative, and using 0 instead is worse than not splitting at all.
+* Eq. 12 of the paper defines the participation ratio on the covariance eigenvalues; this code
+  computes it on the singular values and floors rather than rounds it, which is what the published
+  numbers use. `participation_ratio` in `monoqpm/meaning_split.py` documents both.
 
 ## Visualizing the results
 We also include code to visualize the contrastive class explanations of the trained CHiQPM, loosely building upon [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam).
