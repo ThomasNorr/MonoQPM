@@ -152,20 +152,53 @@ python disentangle_qpm.py --dataset CUB2011 --arch resnet50 --seed <SEED>
 (paper eq. 4) for THR and APS. It reuses the cache above, or computes it if absent:
 
 ```shell
-python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed <SEED> --cal_frac 0.3333
+python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed <SEED>
 ```
 
 Observed Fuzziness is threshold-free: it averages the summed p-values of the WRONG labels, so no
 prediction set is formed and no target coverage has to be chosen. Lower is better. It sums
 `n_classes - 1` p-values, so its scale depends on the dataset and values are comparable only
-within one. Use `--cal_frac` to calibrate on a fraction of each class rather than the fixed count
-of `--cal_size`: a fixed 10 per class is 34.5% of CUB's test set but only 3.5% of a 7-class one,
-which changes the p-value resolution by an order of magnitude between datasets.
+within one.
+
+**Calibration follows CHiQPM.** The default is the split of
+`conformalPrediction/eval_cp.get_logits_and_labels` with 10 images per class, so the numbers are
+directly comparable to the published ones; `tests/test_monoqpm.py` pins the two index for index.
+`--cal_frac` optionally calibrates on a fraction of each class instead, which is only useful when
+comparing datasets of very different size: 10 per class is 34.5% of CUB's test set but 3.5% of a
+7-class one, so the p-value resolution differs by an order of magnitude between them. Use the
+default to reproduce the paper.
 
 `--rules all` additionally reports the assignment ablations, which vary the two independent
 choices of the method: who owns a concept (eq. 14's threshold, or every concept a class's own
 training images fall into) and how a test image is routed (eq. 8's class logits, or the image's
 own mixture mode). Only rules that keep eq. 8 preserve the top-1 guarantee.
+
+### Results on the pretrained Resnet50 QPM (CUB-2011, with crop)
+
+Run on five Resnet50 QPMs trained on CUB with the ground-truth crop -- the same configuration as
+the [QPM-WithCrop](https://drive.google.com/drive/folders/1skvJfzGAqQTm3_eQaTpb7kE_sXnBsm4W?usp=sharing)
+checkpoint above -- with the default CHiQPM calibration (10 images per class). MonoQPM leaves
+accuracy and every top-1 prediction untouched by construction, so only the Fuzziness moves:
+
+| seed | accuracy | concepts / feature | THR QPM | THR MonoQPM | APS QPM | APS MonoQPM |
+|---|---|---|---|---|---|---|
+| 108663 | 0.8524 | 2.62 | 1.105 | 1.082 | 2.716 | 2.098 |
+| 123456 | 0.8486 | 2.50 | 1.010 | 0.930 | 2.652 | 1.954 |
+| 192239 | 0.8478 | 2.42 | 1.040 | 0.879 | 2.761 | 1.957 |
+| 28264 | 0.8429 | 2.50 | 1.226 | 1.141 | 2.915 | 2.194 |
+| 444444 | 0.8440 | 2.46 | 1.274 | 1.148 | 2.851 | 2.132 |
+| **mean** | **0.8472** | **2.50** | **1.131** | **1.036** | **2.779** | **2.067** |
+
+Against the paper's Table 2 for CUB-2011 (QPM 1.18 / 2.75, MonoQPM 2.58 concepts per feature and
+1.03 / 1.97) and its Table 3 (MonoQPM reaching 92.4% of QPM's THR Fuzziness and 77.7% of its APS
+Fuzziness), this code gives 2.50 concepts per feature, 91.6% and 74.4%. Every difference is within
+one standard deviation across the five seeds.
+
+Reproduce a single row with:
+
+```shell
+python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 108663
+```
 
 ### Implementation notes
 
@@ -290,6 +323,14 @@ One pretrained Resnet50 for QPM on CUB can be obtained via this link: [QPM-WithC
 One pretrained Resnet50 QPM trained on CUB without the ground truth crop can be obtained via this link: [QPM-NoCrop](https://drive.google.com/drive/folders/1WC8k_vQTdTR0LWxI8zUByn7RPDVhQawc?usp=sharing)
 
 One pretrained Resnet50 for Q-SENN on CUB can be obtained via this link: [Q-SENN-WithCrop](https://drive.google.com/drive/folders/1agWqKhcWOVWueV4Fzaowr80lQroCJFYn?usp=drive_link)
+
+Place the downloaded folder at `~/tmp/<arch>/<dataset>_crop/<seed>/` so that
+`evaluation.load_model.load_model` finds it, and **load these checkpoints with `img_size=224` and
+`reduced_strides=True`**, the settings `main.py` trains with. `load_model`'s own defaults
+(`img_size=448`, `reduced_strides=False`) are stale: the parameter shapes still match, so the
+checkpoint loads without any error and silently computes different features. On the pretrained
+Resnet50 QPM that is 65.26% accuracy instead of 85.24%. Both `disentangle_qpm.py` and
+`evaluate_conformal.py` default to the correct values.
 
 ## Acknowledgement
 

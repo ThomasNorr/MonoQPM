@@ -223,6 +223,24 @@ def test_calibration_split_and_fuzziness():
     assert 0.0 <= observed_fuzziness(scores, torch.zeros(10, 4), torch.zeros(10)) <= 4.0
 
 
+def test_calibration_split_matches_chiqpm():
+    """The default calibration split must BE CHiQPM's, index for index.
+
+    `conformalPrediction/eval_cp.get_logits_and_labels` is what CHiQPM calibrates with, so the
+    numbers reported for MonoQPM are only comparable to the published ones if the split is the
+    same. This pins them together.
+    """
+    from conformalPrediction.eval_cp import get_logits_and_labels
+    for n_test, n_classes in [(5794, 200), (2007, 7), (1000, 10)]:
+        labels = np.sort(np.random.default_rng(0).integers(0, n_classes, size=n_test))
+        logits = np.zeros((n_test, n_classes), dtype=np.float32)
+        features = torch.zeros(n_test, 4)
+        *_, keep = get_logits_and_labels(features, logits, labels, 10)
+        cal, mine = calibration_split(n_test, n_classes, cal_size=10)
+        assert np.array_equal(np.asarray(keep), mine), (n_test, n_classes)
+        assert not set(cal) & set(mine) and len(cal) + len(mine) == n_test
+
+
 def test_relu_hook_layout_on_resnet18():
     from architectures.model_mapping import get_model
     model = get_model("resnet18", 200, True).eval()
