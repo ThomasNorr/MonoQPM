@@ -136,9 +136,7 @@ For each feature `d` (paper Sections 5.1-5.3):
 At inference a test image's feature value goes to the concept whose classes hold its largest
 logit; every other concept slot of that feature holds `mu_d`, the minimum of that feature over the
 evaluated set (eq. 8). A class logit is the sum over its features of the maximum over the concepts
-it owns (eq. 9). Because the predicted class is the global logit maximum, its own concept always
-wins the routing of every feature it owns, so **MonoQPM provably cannot change the top-1
-prediction** -- the reported `top-1 kept` column is the empirical check.
+it owns (eq. 9).
 
 ### Running it
 
@@ -155,54 +153,24 @@ python disentangle_qpm.py --dataset CUB2011 --arch resnet50 --seed <SEED>
 python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed <SEED>
 ```
 
-Observed Fuzziness is threshold-free: it averages the summed p-values of the WRONG labels, so no
-prediction set is formed and no target coverage has to be chosen. Lower is better. It sums
-`n_classes - 1` p-values, so its scale depends on the dataset and values are comparable only
-within one.
-
 **Calibration follows CHiQPM.** The default is the split of
 `conformalPrediction/eval_cp.get_logits_and_labels` with 10 images per class, so the numbers are
-directly comparable to the published ones; `tests/test_monoqpm.py` pins the two index for index.
-`--cal_frac` optionally calibrates on a fraction of each class instead, which is only useful when
-comparing datasets of very different size: 10 per class is 34.5% of CUB's test set but 3.5% of a
-7-class one, so the p-value resolution differs by an order of magnitude between them. Use the
-default to reproduce the paper.
+directly comparable to the published ones.
 
-`--rules all` additionally reports the assignment ablations, which vary the two independent
-choices of the method: who owns a concept (eq. 14's threshold, or every concept a class's own
-training images fall into) and how a test image is routed (eq. 8's class logits, or the image's
-own mixture mode). Only rules that keep eq. 8 preserve the top-1 guarantee.
-
-### Results on the pretrained Resnet50 QPM (CUB-2011, with crop)
-
-The first row is the [QPM-WithCrop](https://drive.google.com/drive/folders/1skvJfzGAqQTm3_eQaTpb7kE_sXnBsm4W?usp=sharing)
-checkpoint linked below (seed 504405); the others are further Resnet50 QPMs trained on CUB with
-the ground-truth crop, to show the seed-to-seed spread. Calibration is CHiQPM's default of 10
-images per class. MonoQPM leaves accuracy and every top-1 prediction untouched by construction,
-so only the Fuzziness moves:
-
-| seed | accuracy | concepts / feature | THR QPM | THR MonoQPM | APS QPM | APS MonoQPM |
-|---|---|---|---|---|---|---|
-| **504405 (uploaded)** | **0.8547** | **2.56** | **1.003** | **0.895** | **2.514** | **1.858** |
-| 108663 | 0.8524 | 2.62 | 1.105 | 1.082 | 2.716 | 2.098 |
-| 123456 | 0.8486 | 2.50 | 1.010 | 0.930 | 2.652 | 1.954 |
-| 192239 | 0.8478 | 2.42 | 1.040 | 0.879 | 2.761 | 1.957 |
-| 28264 | 0.8429 | 2.50 | 1.226 | 1.141 | 2.915 | 2.194 |
-| 444444 | 0.8440 | 2.46 | 1.274 | 1.148 | 2.851 | 2.132 |
-| mean of 6 | 0.8484 | 2.51 | 1.110 | 1.013 | 2.735 | 2.032 |
-
-On the uploaded checkpoint MonoQPM reaches **89.3% of the frozen QPM's THR Fuzziness and 73.9% of
-its APS Fuzziness**, with 2.56 concepts per feature. Averaged over the six seeds that is 91.3% and
-74.3% at 2.51 concepts per feature, against the paper's Table 3 values of 92.4% and 77.7% and its
-Table 2 count of 2.58. The concept count varies by only 0.07 between seeds, while the absolute
-Fuzziness varies considerably more (the frozen QPM's THR spans 1.003 to 1.274), which is why the
-ratios are the comparable quantity across runs.
-
-Reproduce the first row with:
+On the [QPM-WithCrop](https://drive.google.com/drive/folders/1skvJfzGAqQTm3_eQaTpb7kE_sXnBsm4W?usp=sharing)
+checkpoint linked below (seed 504405), that gives:
 
 ```shell
 python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 504405
 ```
+
+| rule | THR | APS | accuracy |
+|---|---|---|---|
+| QPM | 1.003 | 2.514 | 0.8547 |
+| MonoQPM | 0.895 | 1.858 | 0.8547 |
+
+2.56 concepts per feature, and 89.3% of the frozen QPM's THR Fuzziness and 73.9% of its APS
+Fuzziness, against the paper's 2.58, 92.4% and 77.7%.
 
 ### Implementation notes
 
@@ -214,8 +182,6 @@ python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 504405
   verifies they are identical to it when it is installed.
 * PCA uses the exact SVD solver. scikit-learn's `auto` picks the randomized solver at these shapes
   and does not seed it, which makes the concept assignment vary between runs.
-* `mu_d` in eq. 8 is the feature minimum. This matters more than any other choice: around 82% of a
-  CUB QPM's feature values are negative, and using 0 instead is worse than not splitting at all.
 * Eq. 12 of the paper defines the participation ratio on the covariance eigenvalues; this code
   computes it on the singular values and floors rather than rounds it, which is what the published
   numbers use. `participation_ratio` in `monoqpm/meaning_split.py` documents both.
