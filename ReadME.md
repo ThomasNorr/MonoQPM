@@ -175,29 +175,33 @@ own mixture mode). Only rules that keep eq. 8 preserve the top-1 guarantee.
 
 ### Results on the pretrained Resnet50 QPM (CUB-2011, with crop)
 
-Run on five Resnet50 QPMs trained on CUB with the ground-truth crop -- the same configuration as
-the [QPM-WithCrop](https://drive.google.com/drive/folders/1skvJfzGAqQTm3_eQaTpb7kE_sXnBsm4W?usp=sharing)
-checkpoint above -- with the default CHiQPM calibration (10 images per class). MonoQPM leaves
-accuracy and every top-1 prediction untouched by construction, so only the Fuzziness moves:
+The first row is the [QPM-WithCrop](https://drive.google.com/drive/folders/1skvJfzGAqQTm3_eQaTpb7kE_sXnBsm4W?usp=sharing)
+checkpoint linked below (seed 504405); the others are further Resnet50 QPMs trained on CUB with
+the ground-truth crop, to show the seed-to-seed spread. Calibration is CHiQPM's default of 10
+images per class. MonoQPM leaves accuracy and every top-1 prediction untouched by construction,
+so only the Fuzziness moves:
 
 | seed | accuracy | concepts / feature | THR QPM | THR MonoQPM | APS QPM | APS MonoQPM |
 |---|---|---|---|---|---|---|
+| **504405 (uploaded)** | **0.8547** | **2.56** | **1.003** | **0.895** | **2.514** | **1.858** |
 | 108663 | 0.8524 | 2.62 | 1.105 | 1.082 | 2.716 | 2.098 |
 | 123456 | 0.8486 | 2.50 | 1.010 | 0.930 | 2.652 | 1.954 |
 | 192239 | 0.8478 | 2.42 | 1.040 | 0.879 | 2.761 | 1.957 |
 | 28264 | 0.8429 | 2.50 | 1.226 | 1.141 | 2.915 | 2.194 |
 | 444444 | 0.8440 | 2.46 | 1.274 | 1.148 | 2.851 | 2.132 |
-| **mean** | **0.8472** | **2.50** | **1.131** | **1.036** | **2.779** | **2.067** |
+| mean of 6 | 0.8484 | 2.51 | 1.110 | 1.013 | 2.735 | 2.032 |
 
-Against the paper's Table 2 for CUB-2011 (QPM 1.18 / 2.75, MonoQPM 2.58 concepts per feature and
-1.03 / 1.97) and its Table 3 (MonoQPM reaching 92.4% of QPM's THR Fuzziness and 77.7% of its APS
-Fuzziness), this code gives 2.50 concepts per feature, 91.6% and 74.4%. Every difference is within
-one standard deviation across the five seeds.
+On the uploaded checkpoint MonoQPM reaches **89.3% of the frozen QPM's THR Fuzziness and 73.9% of
+its APS Fuzziness**, with 2.56 concepts per feature. Averaged over the six seeds that is 91.3% and
+74.3% at 2.51 concepts per feature, against the paper's Table 3 values of 92.4% and 77.7% and its
+Table 2 count of 2.58. The concept count varies by only 0.07 between seeds, while the absolute
+Fuzziness varies considerably more (the frozen QPM's THR spans 1.003 to 1.274), which is why the
+ratios are the comparable quantity across runs.
 
-Reproduce a single row with:
+Reproduce the first row with:
 
 ```shell
-python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 108663
+python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 504405
 ```
 
 ### Implementation notes
