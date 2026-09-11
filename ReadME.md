@@ -182,9 +182,10 @@ Fuzziness, against the paper's 2.58, 92.4% and 77.7%.
   verifies they are identical to it when it is installed.
 * PCA uses the exact SVD solver. scikit-learn's `auto` picks the randomized solver at these shapes
   and does not seed it, which makes the concept assignment vary between runs.
-* Eq. 12 of the paper defines the participation ratio on the covariance eigenvalues; this code
-  computes it on the singular values and floors rather than rounds it, which is what the published
-  numbers use. `participation_ratio` in `monoqpm/meaning_split.py` documents both.
+* This code implements the corrected eq. 12: the participation ratio is taken over the singular
+  values and floored rather than rounded. An earlier statement of eq. 12 wrote it on the
+  covariance eigenvalues, which is a different measure and keeps far fewer PCA components.
+  `participation_ratio` in `monoqpm/meaning_split.py` gives both.
 
 ## Visualizing the results
 We also include code to visualize the contrastive class explanations of the trained CHiQPM, loosely building upon [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam).

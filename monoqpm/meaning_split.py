@@ -47,10 +47,11 @@ Implementation notes, all verified against the authors' research implementation:
   irreproducible run to run (three seeds agreed on the class partition of only 18-22 of 50
   features on a CUB200 resnet34 QPM, though on the number of concepts for 43-45 of them). The
   exact solver removes that variance; set ``"auto"`` to reproduce the original behaviour.
-* Eq. 12 of the paper defines the participation ratio on covariance eigenvalues; the reference
-  implementation computes ``(sum sigma)^2 / sum sigma^2`` over singular values and floors rather
-  than rounds it. This module follows the implementation, which keeps roughly five times more PCA
-  components and measures better; ``ParticipationRatio`` below documents both.
+* This code implements the CORRECTED eq. 12, i.e. the participation ratio taken over the
+  singular values, ``(sum sigma)^2 / sum sigma^2``, and floored rather than rounded. An earlier
+  statement of eq. 12 wrote it on the covariance eigenvalues; that form keeps roughly five times
+  fewer PCA components and is not what the reported numbers use. ``participation_ratio`` below
+  gives both.
 * A class with no correctly classified training image is dropped from that feature's rows.
 """
 import pickle
@@ -143,11 +144,11 @@ def extract_relu_codes(model, dataset, device, batch_size=64, num_workers=8, wit
 def participation_ratio(x):
     """Participation ratio of a centred matrix; 1.0 for an all-zero matrix.
 
-    Paper eq. 12 writes it on the covariance eigenvalues, ``(sum lambda)^2 / sum lambda^2``. The
-    reference implementation computes it on the SINGULAR values instead, which is what this
-    returns: ``(sum sigma)^2 / sum sigma^2 = (sum sqrt(lambda))^2 / sum lambda``. The two are
-    different measures of effective dimensionality; the singular-value one is always the larger
-    and is the one the published numbers use. See the module docstring.
+    This is the corrected eq. 12: the ratio is taken over the SINGULAR values,
+    ``(sum sigma)^2 / sum sigma^2 = (sum sqrt(lambda))^2 / sum lambda``. An earlier statement of
+    eq. 12 wrote it on the covariance eigenvalues, ``(sum lambda)^2 / sum lambda^2``, which is a
+    different measure of effective dimensionality and always the smaller of the two. The
+    singular-value form is the one the reported numbers use.
     """
     s = np.linalg.svd(x, compute_uv=False)
     denominator = float((s ** 2).sum())
