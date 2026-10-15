@@ -47,7 +47,7 @@ def main(dataset, arch,seed=None, model_type="qsenn", do_dense=True,crop = True,
     training, evaluation, feature selection, and finetuning.
     
     Args:
-        dataset (str): Dataset name, one of ["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"]
+        dataset (str): Dataset name, one of ["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"]
         arch (str): Backbone architecture, one of ["resnet50", "resnet34", "resnet18"]
         seed (int, optional): Random seed for reproducibility. If None, a random seed is generated.
         model_type (str): Type of interpretable model to train, one of ["chiqpm", "qpm", "qsenn", "sldd"]
@@ -66,7 +66,7 @@ def main(dataset, arch,seed=None, model_type="qsenn", do_dense=True,crop = True,
         ValueError: If invalid parameters are provided
     """
     # Validate parameters
-    valid_datasets = ["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"]
+    valid_datasets = ["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"]
     if dataset not in valid_datasets:
         raise ValueError(f"Invalid dataset '{dataset}'. Must be one of {valid_datasets}")
     
@@ -95,8 +95,8 @@ def main(dataset, arch,seed=None, model_type="qsenn", do_dense=True,crop = True,
     
     dataset_key = dataset
     if crop:
-        if dataset not in ["CUB2011","TravelingBirds"]:
-            raise ValueError(f"Cropping is only supported for CUB2011 and TravelingBirds, not {dataset}")
+        if dataset not in ["CUB2011","TravelingBirds", "CUBCars"]:
+            raise ValueError(f"Cropping is only supported for CUB2011, TravelingBirds and CUBCars (CUB half), not {dataset}")
         dataset_key += "_crop"
     
     log_dir = Path.home()/f"tmp/{arch}/{dataset_key}/{seed}/"
@@ -156,7 +156,7 @@ def main(dataset, arch,seed=None, model_type="qsenn", do_dense=True,crop = True,
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--dataset', default="CUB2011", type=str, help='dataset name', choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"])
+    parser.add_argument('--dataset', default="CUB2011", type=str, help='dataset name', choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"])
     parser.add_argument('--arch', default="resnet50", type=str, help='Backbone Feature Extractor', choices=["resnet50","resnet34", "resnet18"])
     parser.add_argument('--model_type', default="chiqpm", type=str, help='Type of Model', choices=["chiqpm","qsenn", "sldd", "qpm"])
     parser.add_argument('--seed', default=None, type=int, help='seed, used for naming the folder and random processes. Could be useful to set to have multiple finetune runs (e.g. Q-SENN and SLDD) on the same dense model') # 769567, 552629

@@ -22,6 +22,7 @@ from torchvision.transforms import transforms, TrivialAugmentWide
 
 from configs.dataset_params import normalize_params
 from dataset_classes.cub200 import CUB200Class
+from dataset_classes.cubcars import CUBCarsClass
 from dataset_classes.stanfordcars import StanfordCarsClass
 from dataset_classes.travelingbirds import TravelingBirds
 
@@ -55,7 +56,7 @@ def get_data(dataset, crop = True, img_size=448):
         - Cropped images should be pre-computed following ProtoTree's preprocessing instructions
     """
     # Validate dataset name
-    valid_datasets = ["CUB2011", "TravelingBirds", "StanfordCars", "ImageNet", "FGVCAircraft"]
+    valid_datasets = ["CUB2011", "TravelingBirds", "StanfordCars", "CUBCars", "ImageNet", "FGVCAircraft"]
     if dataset not in valid_datasets:
         raise ValueError(f"Invalid dataset '{dataset}'. Must be one of {valid_datasets[:-1]}")
     
@@ -76,6 +77,12 @@ def get_data(dataset, crop = True, img_size=448):
         test_transform = get_augmentation(0.1, img_size, False, True, True, True, normalize_params["StanfordCars"])
         train_dataset = StanfordCarsClass(True, train_transform)
         test_dataset = StanfordCarsClass(False, test_transform)
+    elif dataset == "CUBCars":
+        # CUB-2011 + Stanford Cars; crop applies to the CUB half only, Cars is always uncropped
+        train_transform = get_augmentation(0.1, img_size, True, not crop, True, True, normalize_params["CUBCars"])
+        test_transform = get_augmentation(0.1, img_size, False, not crop, True, True, normalize_params["CUBCars"])
+        train_dataset = CUBCarsClass(True, train_transform, crop)
+        test_dataset = CUBCarsClass(False, test_transform, crop)
     elif dataset == "FGVCAircraft":
         raise NotImplementedError("FGVCAircraft dataset is not yet implemented")
 

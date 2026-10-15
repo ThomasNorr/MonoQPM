@@ -33,8 +33,8 @@ For each feature ``d``:
 At inference the concepts are used by eq. 8 and eq. 9, implemented in ``monoqpm/conformal.py``:
 a test image's feature value goes to the concept whose classes hold its largest logit, every
 other concept slot of that feature holds ``mu_d``, and a class logit is the sum over its features
-of the maximum over the concepts it owns. ``mu_d`` is the minimum of feature ``d`` over the
-evaluated set. Because the predicted class is the global logit maximum, its concept always wins
+of the maximum over the concepts it owns. ``mu_d`` is the minimum of feature ``d``, its value
+when it finds no evidence. Because the predicted class is the global logit maximum, its concept always wins
 the routing of every feature it owns, so **MonoQPM provably cannot change the top-1 prediction**.
 
 Implementation notes, all verified against the authors' research implementation:
@@ -47,11 +47,10 @@ Implementation notes, all verified against the authors' research implementation:
   irreproducible run to run (three seeds agreed on the class partition of only 18-22 of 50
   features on a CUB200 resnet34 QPM, though on the number of concepts for 43-45 of them). The
   exact solver removes that variance; set ``"auto"`` to reproduce the original behaviour.
-* This code implements the CORRECTED eq. 12, i.e. the participation ratio taken over the
-  singular values, ``(sum sigma)^2 / sum sigma^2``, and floored rather than rounded. An earlier
-  statement of eq. 12 wrote it on the covariance eigenvalues; that form keeps roughly five times
-  fewer PCA components and is not what the reported numbers use. ``participation_ratio`` below
-  gives both.
+* Eq. 12, the participation ratio, is taken over the singular values,
+  ``(sum sigma)^2 / sum sigma^2``, of each ReLU call's codes on their own, and the number of PCA
+  components is its floor at the selected call. The PCA itself is fitted on the concatenation of
+  all calls up to and including that one.
 * A class with no correctly classified training image is dropped from that feature's rows.
 """
 import pickle
@@ -142,13 +141,11 @@ def extract_relu_codes(model, dataset, device, batch_size=64, num_workers=8, wit
 # ----------------------------------------------------------------------------------------------
 
 def participation_ratio(x):
-    """Participation ratio of a centred matrix; 1.0 for an all-zero matrix.
+    """Participation ratio (eq. 12) of a centred matrix; 1.0 for an all-zero matrix.
 
-    This is the corrected eq. 12: the ratio is taken over the SINGULAR values,
-    ``(sum sigma)^2 / sum sigma^2 = (sum sqrt(lambda))^2 / sum lambda``. An earlier statement of
-    eq. 12 wrote it on the covariance eigenvalues, ``(sum lambda)^2 / sum lambda^2``, which is a
-    different measure of effective dimensionality and always the smaller of the two. The
-    singular-value form is the one the reported numbers use.
+    Taken over the singular values, ``(sum sigma)^2 / sum sigma^2``. It is applied to the codes of
+    one ReLU call at a time (``select_layers``), never to the concatenation, as in the original
+    implementation; only the PCA input is the concatenation up to the selected call.
     """
     s = np.linalg.svd(x, compute_uv=False)
     denominator = float((s ** 2).sum())

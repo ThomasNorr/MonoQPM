@@ -13,9 +13,9 @@ method: who owns a concept (eq. 14's threshold, or every concept a class's own t
 land in) and how a test image is routed (eq. 8's class logits, or the image's own mixture mode).
 Only rules that keep eq. 8 preserve the top-1 guarantee.
 
-Example:
+Example (the paper's calibration: 10 test images per class, CHiQPM's split):
 
-    python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 123456 --cal_frac 0.3333
+    python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 123456
 """
 import argparse
 import json
@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from monoqpm.concept_similarity import concept_classes_similarity, gt_class_similarity
 from monoqpm.conformal import class_slots_from_samples, fuzziness, mono_logits
 from monoqpm.extract import (check_linear_reconstruction, class_assignment, compute_or_load_split,
                              load_qpm, run_folder)
@@ -36,7 +37,7 @@ ABLATION_RULES = ("MonoQPM re-routed", "eq. 14 + sample-mode", "free + eq. 8", "
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dataset", default="CUB2011",
-                   choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"])
+                   choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"])
     p.add_argument("--arch", default="resnet50")
     p.add_argument("--seed", default=None, type=int)
     p.add_argument("--model_type", default="qpm", choices=["qpm", "chiqpm", "qsenn", "sldd"])
@@ -126,17 +127,23 @@ def main():
     n_classes = int(weight.shape[0])
     fz = dict(cal_size=args.cal_size, stratified=args.stratified, cal_frac=args.cal_frac)
     scores = evaluate(split, train, test, weight, n_classes, rules, fz)
+    gt_sims = gt_class_similarity(args.dataset)
+    if gt_sims is not None:
+        # Ground Truth Concept Classes Similarity (eq. 19): the frozen QPM's concepts are its features
+        scores["QPM"]["GT"] = concept_classes_similarity(np.asarray(weight), gt_sims)
+        scores["MonoQPM"]["GT"] = concept_classes_similarity(split.split_weight(weight), gt_sims)
 
     assignment = weight != 0
     print(f"\n{split.n_feats_init} features -> {split.total_features} concepts "
           f"({split.n_meanings.mean():.2f} per feature, {(split.n_meanings > 1).sum()} split); "
           f"{assignment.sum(1).mean():.1f} features/class, {assignment.sum(0).mean():.2f} classes/feature")
-    print("\n| rule | THR | APS | acc | top-1 kept |")
-    print("|---|---|---|---|---|")
+    print("\n| rule | THR | APS | acc | top-1 kept | GT sim |")
+    print("|---|---|---|---|---|---|")
     for rule in rules:
         s = scores[rule]
         kept = "-" if rule == "QPM" else f"{s['top1_kept']:.4f}"
-        print(f"| {rule} | {s['THR']:.3f} | {s['APS']:.3f} | {s['acc']:.4f} | {kept} |")
+        gt = f"{s['GT']:.3f}" if "GT" in s else "-"
+        print(f"| {rule} | {s['THR']:.3f} | {s['APS']:.3f} | {s['acc']:.4f} | {kept} | {gt} |")
 
     result = {**scores, "dataset": args.dataset, "arch": args.arch, "seed": args.seed,
               "n_classes": n_classes, "features": int(assignment.shape[1]),

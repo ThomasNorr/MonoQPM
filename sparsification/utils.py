@@ -136,9 +136,8 @@ def get_default_args():
     parser.add_argument('--lookbehind', type=int, default=3)
     parser.add_argument('--lam-factor', type=float, default=0.001)
     parser.add_argument('--group', action='store_true')
-    args = parser.parse_args()
-
-    args = parser.parse_args()
+    # Only the defaults are wanted: parsing sys.argv would read main.py's own arguments and fail
+    args = parser.parse_args([])
     return args
 
 

@@ -2,6 +2,30 @@ import torch
 from tqdm import tqdm
 
 
+class LazyTestFeatureMaps:
+    """Test feature maps of ``rel_features``, recomputed slice by slice instead of buffered.
+
+    Buffering them all needs n_test x n_features x H x W floats: 89 GB for a dense resnet50 on
+    CUBCars (13,835 test images, 2048 x 28 x 28), more than the host has. The metric evaluators
+    only ever read contiguous slices ``maps[a:b]``, so this recomputes exactly those images from
+    the unshuffled test set with the deterministic test transform.
+    """
+
+    def __init__(self, model, dataset, rel_features, device):
+        self.model, self.dataset, self.rel_features, self.device = model, dataset, rel_features, device
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        assert isinstance(index, slice) and index.step in (None, 1), index
+        images = torch.stack([self.dataset[i][0] for i in range(*index.indices(len(self)))])
+        with torch.no_grad():
+            _, feature_maps, _ = self.model(images.to(self.device), with_feature_maps=True,
+                                            with_final_features=True)
+        return feature_maps[:, self.rel_features].to("cpu")
+
+
 
 def get_metrics_for_model(train_loader, test_loader, model, metric_evaluator):
     (features_train, feature_maps_train, outputs_train, features_test, feature_maps_test,
@@ -32,7 +56,6 @@ def get_metrics_for_model(train_loader, test_loader, model, metric_evaluator):
             xs1 = data.to("cuda")
             output, feature_maps, final_features = model(xs1, with_feature_maps=True,
                                                          with_final_features=True, )
-            feature_maps_test.append(feature_maps[:, rel_features].to("cpu"))
             features_test.append(final_features.to("cpu"))
             outputs_test.append(output.to("cpu"))
             total += target.size(0)
@@ -42,7 +65,7 @@ def get_metrics_for_model(train_loader, test_loader, model, metric_evaluator):
         print("test accuracy: ", correct / total)
         features_train = torch.cat(features_train)
         outputs_train = torch.cat(outputs_train)
-        feature_maps_test = torch.cat(feature_maps_test)
+        feature_maps_test = LazyTestFeatureMaps(model, test_loader.dataset, rel_features, device)
         outputs_test = torch.cat(outputs_test)
         features_test = torch.cat(features_test)
         labels = torch.cat(labels)

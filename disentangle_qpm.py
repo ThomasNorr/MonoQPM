@@ -27,7 +27,7 @@ from monoqpm.extract import class_assignment, compute_or_load_split, load_qpm, r
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--dataset", default="CUB2011",
-                   choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"])
+                   choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"])
     p.add_argument("--arch", default="resnet50")
     p.add_argument("--seed", default=None, type=int)
     p.add_argument("--model_type", default="qpm", choices=["qpm", "chiqpm", "qsenn", "sldd"])

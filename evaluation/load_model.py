@@ -38,7 +38,7 @@ def load_model(dataset, arch,seed=None, model_type="qsenn",crop = True, n_featur
     if folder is None:
         if crop: dataset += "_crop"
         folder = Path.home() / f"tmp/{arch}/{dataset}/{seed}/"
-    state_dict = torch.load(folder / f"{model_type}_{n_features}_{n_per_class}_FinetunedModel.pth")
+    state_dict = torch.load(folder / f"{model_type}_{n_features}_{n_per_class}_FinetunedModel.pth", map_location="cpu")
     feature_sel, sparse_layer, current_mean, current_std, bias_sparse = extract_sel_mean_std_bias_assignemnt(state_dict)
     model.set_model_sldd(feature_sel, sparse_layer, current_mean, current_std, bias_sparse, relu= (model_type=="chiqpm"))
     model.load_state_dict(state_dict)
@@ -49,7 +49,7 @@ def load_model(dataset, arch,seed=None, model_type="qsenn",crop = True, n_featur
 def get_args_for_loading_model():
     parser = ArgumentParser()
     parser.add_argument('--dataset', default="CUB2011", type=str, help='dataset name',
-                        choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars"])
+                        choices=["CUB2011", "ImageNet", "TravelingBirds", "StanfordCars", "CUBCars"])
     parser.add_argument('--arch', default="resnet50", type=str, help='Backbone Feature Extractor',
                         choices=["resnet50", "resnet18"])
     parser.add_argument('--model_type', default="chiqpm", type=str, help='Type of Model',

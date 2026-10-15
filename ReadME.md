@@ -55,6 +55,8 @@ Supported datasets are:
 - [StanfordCars](https://ai.stanford.edu/~jkrause/cars/car_dataset.html)
 - [TravelingBirds](https://worksheets.codalab.org/bundles/0x518829de2aa440c79cd9d75ef6669f27)
 - [ImageNet](https://www.image-net.org/)
+- CUBCars: the union of CUB-2011 and Stanford Cars introduced with MonoQPM, built from the two
+  folders above (no separate download)
 
 To use the data for training, the datasets have to be downloaded and put into the 
 respective folder under ~/tmp/datasets such that the final structure looks like
@@ -134,8 +136,8 @@ For each feature `d` (paper Sections 5.1-5.3):
    (eq. 14).
 
 At inference a test image's feature value goes to the concept whose classes hold its largest
-logit; every other concept slot of that feature holds `mu_d`, the minimum of that feature over the
-evaluated set (eq. 8). A class logit is the sum over its features of the maximum over the concepts
+logit; every other concept slot of that feature holds `mu_d`, the minimum of that feature, i.e. its
+value when it finds no evidence (eq. 8). A class logit is the sum over its features of the maximum over the concepts
 it owns (eq. 9).
 
 ### Running it
@@ -147,7 +149,8 @@ python disentangle_qpm.py --dataset CUB2011 --arch resnet50 --seed <SEED>
 ```
 
 `evaluate_conformal.py` scores the conformal efficiency before and after, as Observed Fuzziness
-(paper eq. 4) for THR and APS. It reuses the cache above, or computes it if absent:
+(paper eq. 4) for THR and APS, and, on CUB-2011 and CUBCars, the Ground Truth Concept Classes
+Similarity (eq. 19, column "GT"). It reuses the cache above, or computes it if absent:
 
 ```shell
 python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed <SEED>
@@ -164,28 +167,53 @@ checkpoint linked below (seed 504405), that gives:
 python evaluate_conformal.py --dataset CUB2011 --arch resnet50 --seed 504405
 ```
 
-| rule | THR | APS | accuracy |
-|---|---|---|---|
-| QPM | 1.003 | 2.514 | 0.8547 |
-| MonoQPM | 0.895 | 1.858 | 0.8547 |
+| rule | THR | APS | accuracy | GT |
+|---|---|---|---|---|
+| QPM | 1.003 | 2.514 | 0.8547 | 0.650 |
+| MonoQPM | 0.895 | 1.858 | 0.8547 | 0.700 |
 
 2.56 concepts per feature, and 89.3% of the frozen QPM's THR Fuzziness and 73.9% of its APS
-Fuzziness, against the paper's 2.58, 92.4% and 77.7%.
+Fuzziness, against the paper's 2.58, 92.4% and 77.7%. The paper reports GT 0.64 and 0.70.
+
+### CUBCars
+
+CUBCars is the union of CUB-2011 and Stanford Cars (396 classes: CUB 0-199, Cars 200-395; 14,138
+training and 13,835 test images). It is built on the fly from the two dataset folders above, so
+nothing extra has to be downloaded. As in the paper, it is trained with the CUB-2011 setting:
+the CUB images use the ground-truth crop and the Cars images are used uncropped.
+
+```shell
+python main.py --dataset CUBCars --arch resnet50 --model_type qpm --seed <SEED>
+python disentangle_qpm.py --dataset CUBCars --arch resnet50 --seed <SEED>
+python evaluate_conformal.py --dataset CUBCars --arch resnet50 --seed <SEED>
+```
+
+On CUBCars, GT is 1 for a pair of classes from the same source dataset and 0 otherwise, so a GT
+of 1.0 means that no concept contains both birds and cars. One seed (840061) trained with this
+repository gives:
+
+| rule | THR | APS | accuracy | GT |
+|---|---|---|---|---|
+| QPM | 1.246 | 3.856 | 0.8883 | 0.605 |
+| MonoQPM | 1.114 | 2.694 | 0.8883 | 1.000 |
+
+That is 2.70 concepts per feature, with all 50 features split, against the paper's ResNet-50
+averages over 5 seeds: THR 1.31 / 1.18, APS 3.82 / 2.69 and GT 0.62 / 1.00. The dense model
+reaches 90.4% and the QPM 88.8%, inside the 90.2-90.5% and 88.6-88.9% of the original runs.
 
 ### Implementation notes
 
 * **`monoqpm/meaning_split.py`** finds the concepts, **`monoqpm/conformal.py`** implements eq. 8,
-  eq. 9 and Observed Fuzziness, and **`monoqpm/extract.py`** connects both to this repository's
-  models. `tests/test_monoqpm.py` checks the Fisher-Jenks breaks against brute-force optimality,
-  eq. 8/9 against a hand-written reference, and the ReLU hook layout.
+  eq. 9 and Observed Fuzziness, **`monoqpm/concept_similarity.py`** implements the Ground Truth
+  Concept Classes Similarity (eq. 19), and **`monoqpm/extract.py`** connects them to this
+  repository's models. `tests/test_monoqpm.py` checks the Fisher-Jenks breaks against brute-force
+  optimality, eq. 8/9 and eq. 19 against hand-written references, and the ReLU hook layout.
 * The Fisher-Jenks breaks are reimplemented so that `jenkspy` is not required; the test suite
   verifies they are identical to it when it is installed.
 * PCA uses the exact SVD solver. scikit-learn's `auto` picks the randomized solver at these shapes
   and does not seed it, which makes the concept assignment vary between runs.
-* This code implements the corrected eq. 12: the participation ratio is taken over the singular
-  values and floored rather than rounded. An earlier statement of eq. 12 wrote it on the
-  covariance eigenvalues, which is a different measure and keeps far fewer PCA components.
-  `participation_ratio` in `monoqpm/meaning_split.py` gives both.
+* The number of PCA components is the participation ratio of eq. 12, taken over the singular
+  values and floored, as in the paper (`participation_ratio` in `monoqpm/meaning_split.py`).
 
 ## Visualizing the results
 We also include code to visualize the contrastive class explanations of the trained CHiQPM, loosely building upon [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam).

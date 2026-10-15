@@ -15,6 +15,8 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from monoqpm.concept_similarity import (concept_classes_similarity,  # noqa: E402
+                                        cubcars_class_similarity)
 from monoqpm.conformal import (calibration_split, class_slots_from_samples,  # noqa: E402
                                concept_slots_per_class, mono_logits, observed_fuzziness)
 from monoqpm.meaning_split import (MeaningSplit, compute_meaning_split, jenks_breaks,  # noqa: E402
@@ -257,6 +259,34 @@ def test_relu_hook_layout_on_resnet18():
     codes2, ranges2, out2 = relu_activation_fractions(model, x, with_final_features=True)
     assert ranges2 == ranges and torch.allclose(codes, codes2)
     assert isinstance(out2, list) and out2[1].shape == (2, 512)
+
+
+def test_concept_classes_similarity():
+    """Eq. 19 against a hand computation, and CUBCars' dataset-of-origin Psi_gt."""
+    sims = np.array([[1., .2, .4, 0.],
+                     [.2, 1., .6, 0.],
+                     [.4, .6, 1., .8],
+                     [0., 0., .8, 1.]])
+    assignment = np.array([[1, 0, 1, 1],
+                           [1, 1, 0, 0],
+                           [1, 0, 0, 0],
+                           [0, 0, 1, 0]])
+    # concept 0: pairs (0,1),(0,2),(1,2) -> 0.4; concept 1 has one class -> skipped;
+    # concept 2: pair (0,3) -> 0.0; concept 3 has one class -> skipped
+    assert np.isclose(concept_classes_similarity(assignment, sims), (0.4 + 0.0) / 2)
+    gt = cubcars_class_similarity()
+    mixed = np.zeros((396, 2))
+    mixed[[0, 5, 250], 0] = 1          # two birds and one car: pairs 1, 0, 0
+    mixed[[300, 301], 1] = 1           # two cars: pair 1
+    assert np.isclose(concept_classes_similarity(mixed, gt), (1 / 3 + 1) / 2)
+    # The toy split separates classes {0,1,2} from {3,4,5} in feature 0: under a block Psi_gt the
+    # split concepts are pure, while the unsplit feature mixes both blocks.
+    toy, W = _toy_split()
+    block = np.zeros((6, 6))
+    block[:3, :3] = block[3:, 3:] = 1
+    assert np.isclose(concept_classes_similarity(W[:, :1], block), 6 / 15)
+    split_w = toy.split_weight(W)
+    assert np.isclose(concept_classes_similarity(split_w[:, :2], block), 1.0)
 
 
 if __name__ == "__main__":
