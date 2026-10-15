@@ -339,13 +339,19 @@ One pretrained Resnet50 QPM trained on CUB without the ground truth crop can be 
 
 One pretrained Resnet50 for Q-SENN on CUB can be obtained via this link: [Q-SENN-WithCrop](https://drive.google.com/drive/folders/1agWqKhcWOVWueV4Fzaowr80lQroCJFYn?usp=drive_link)
 
-Place the downloaded folder at `~/tmp/<arch>/<dataset>_crop/<seed>/` so that
+Pretrained Resnet50 QPM and CHiQPM models on ImageNet can be obtained via this link: [QPM/CHiQPM-ImageNet](https://drive.google.com/drive/folders/1YwEFz7lqOUuTMFf9ItGHAX4FlfJ4WodM?usp=sharing)
+
+One pretrained Resnet50 QPM on CUBCars (seed 840061, the one in the MonoQPM table above) can be obtained via this link: [QPM-CUBCars](https://drive.google.com/drive/folders/1ComfhxdYc_Kx4YpCDOEwPQJ42AXkpg7q?usp=sharing)
+
+Place a downloaded CUB or CUBCars folder at `~/tmp/<arch>/<dataset>_crop/<seed>/` so that
 `evaluation.load_model.load_model` finds it, and **load these checkpoints with `img_size=224` and
 `reduced_strides=True`**, the settings `main.py` trains with. `load_model`'s own defaults
 (`img_size=448`, `reduced_strides=False`) are stale: the parameter shapes still match, so the
 checkpoint loads without any error and silently computes different features. On the pretrained
 Resnet50 QPM that is 65.26% accuracy instead of 85.24%. Both `disentangle_qpm.py` and
-`evaluate_conformal.py` default to the correct values.
+`evaluate_conformal.py` default to the correct values. The ImageNet models are the exception:
+they keep the standard strides of the pretrained backbone, so load them with
+`reduced_strides=False` and `crop=False`, pointing `folder` at the downloaded directory.
 
 ## Acknowledgement
 
