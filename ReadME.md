@@ -10,9 +10,17 @@ polysemantic features of a frozen QPM into monosemantic concepts, and evaluates 
 the efficiency of Conformal Prediction. Nothing is retrained: a trained QPM goes in, a MonoQPM
 with one concept per discovered meaning comes out.
 
+<p align="center">
+    <img width="900" src="fig/fig1MonoQPM.png">
+</p>
+
+On CUBCars, a union of CUB-2011 and Stanford Cars, one polysemantic QPM feature fires on birds and
+on cars (a); MonoQPM splits it into a bird concept and a car concept (b), and the disentangled
+model predicts smaller conformal sets than the frozen QPM (c, CUB-2011).
+
 See [MonoQPM: disentangling a trained QPM](#monoqpm-disentangling-a-trained-qpm) for how to run it.
 
-It is built on the CHiQPM codebase, which is included here in full so that a model can be trained
+It is built on the [CHiQPM codebase](https://github.com/ThomasNorr/CHiQPM), which is included here in full so that a model can be trained
 and disentangled from one checkout. Everything below this line is that original code base.
 
 ---
