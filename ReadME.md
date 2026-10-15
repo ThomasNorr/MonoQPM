@@ -1,6 +1,11 @@
 # MonoQPM: Splitting Features into Concepts
 
-This repository contains the code for **MonoQPM**, a post-hoc transformation that disentangles the
+This repository contains the code for the TMLR paper
+[*MonoQPM: Splitting Features into Concepts for Inherent Interpretability and Predictive Performance*](https://openreview.net/forum?id=8bQNRlFQhZ)
+by Thomas Norrenbrock, Robert Zimmermann, Timo Kaiser, Sovan Biswas, Neslihan Kose, and Bodo
+Rosenhahn.
+
+**MonoQPM** is a post-hoc transformation that disentangles the
 polysemantic features of a frozen QPM into monosemantic concepts, and evaluates the result through
 the efficiency of Conformal Prediction. Nothing is retrained: a trained QPM goes in, a MonoQPM
 with one concept per discovered meaning comes out.
@@ -271,6 +276,17 @@ and prediction set in the hierarchical explanation.
 
 ## Citations
 Please cite this work as:\
+MonoQPM
+```bibtex
+@article{norrenbrock2026monoqpm,
+  title={{MonoQPM}: Splitting Features into Concepts for Inherent Interpretability and Predictive Performance},
+  author={Norrenbrock, Thomas and Zimmermann, Robert and Kaiser, Timo and Biswas, Sovan and Kose, Neslihan and Rosenhahn, Bodo},
+  journal={Transactions on Machine Learning Research},
+  issn={2835-8856},
+  year={2026},
+  url={https://openreview.net/forum?id=8bQNRlFQhZ}
+}
+```
 CHiQPM
 ```bibtex
 @article{norrenbrock2026chiqpm,
