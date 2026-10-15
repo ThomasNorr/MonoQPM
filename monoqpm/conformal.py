@@ -106,11 +106,10 @@ def mono_logits(split, features, logits, weight, inactive="min", train_features=
     ``weight`` is the QPM's class/feature assignment ``W [C, F]``; the result is ``[N, C]``.
 
     ``inactive`` sets ``mu_d`` of paper eq. 8, the value of a concept slot the image is NOT routed
-    to: ``"min"`` (the default, and what the published numbers use) is the per-feature minimum
-    over the evaluated set; ``"train_min"`` / ``"train_mean"`` take a constant from
-    ``train_features`` instead; ``"zero"`` sets 0; ``"min0"`` uses the per-image ``min(0, f_d)``.
-    This choice matters more than any other: on a CUB200 QPM roughly 82% of feature values are
-    negative, and ``"zero"`` is worse than not splitting at all.
+    to: ``"min"`` (the default, and what the published numbers use) is the per-feature minimum,
+    the value of ``f_d`` when it finds no evidence; ``"train_min"`` / ``"train_mean"`` take a
+    constant from ``train_features`` instead; ``"zero"`` sets 0; ``"min0"`` uses the per-image
+    ``min(0, f_d)``.
 
     ``masks`` overrides the eq. 8 routing (e.g. each sample's own mixture mode), and
     ``class_slots`` overrides which concepts a class reads (e.g. derived from where its training
